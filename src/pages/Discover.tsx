@@ -81,12 +81,12 @@ const PLANS = [
     id: 'gold', name: 'Gold', price: '₹599', color: 'text-amber-400', border: 'border-amber-500/40',
     bg: 'from-amber-900/20 to-transparent', icon: <Star size={13} className="text-amber-400" fill="currentColor" />,
     badge: 'Popular',
-    features: ['Everything in Plus', 'See Who Likes You', 'Top Picks', 'AI Compatibility', 'Verified Badge'],
+    features: ['Everything in Plus', 'See Who Likes You', 'Verified Badge'],
   },
   {
     id: 'platinum', name: 'Platinum', price: '₹999', color: 'text-purple-400', border: 'border-purple-500/40',
     bg: 'from-purple-900/20 to-transparent', icon: <Crown size={13} className="text-purple-400" />,
-    features: ['Everything in Gold', 'Message Before Match', 'Unlimited Boosts', 'VIP Support'],
+    features: ['Everything in Gold', 'VIP Support'],
   },
 ];
 
