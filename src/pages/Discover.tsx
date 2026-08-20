@@ -790,16 +790,36 @@ function FilterPanel({
   );
 }
 
+const PLAN_RANKS: Record<string, number> = {
+  free: 0,
+  plus: 1,
+  gold: 2,
+  platinum: 3,
+};
+
 // ─── Premium Card ─────────────────────────────────────────────────────────────
 function PremiumCard() {
-  const [selected, setSelected] = useState("gold");
+  const { user, updateUser, refreshUser } = useAuth();
+  const currentPlan = user?.plan || "free";
+  const currentDbRank = PLAN_RANKS[currentPlan] ?? 0;
+
+  const [selected, setSelected] = useState<string>(currentPlan);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { user, updateUser, refreshUser } = useAuth();
+
+  useEffect(() => {
+    if (user?.plan) {
+      // Auto select current active plan or highest available
+      setSelected(user.plan);
+    }
+  }, [user?.plan]);
 
   const handleUpgrade = async () => {
     const plan = PLANS.find((p) => p.id === selected);
-    if (!plan || plan.id === "free") return;
+    if (!plan) return;
+    const targetRank = PLAN_RANKS[selected] ?? 0;
+    if (targetRank <= currentDbRank) return;
+
     setLoading(true);
     try {
       const token = localStorage.getItem("motohippi_token");
@@ -837,54 +857,73 @@ function PremiumCard() {
     }
   };
 
-  const currentPlan = user?.plan || "free";
+  const selectedRank = PLAN_RANKS[selected] ?? 0;
+  const isCurrentPlan = selected === currentPlan;
+  const isDowngrade = selectedRank < currentDbRank;
 
   return (
     <div className="rounded-2xl border border-white/8 bg-card/50 p-4 mt-4 shrink-0">
       <div className="flex items-center gap-2 mb-3">
         <Crown size={15} className="text-primary" />
         <h3 className="text-xs font-black text-white">Unlock Better Matches</h3>
-        {currentPlan !== "free" && (
-          <span className="ml-auto text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
-            {currentPlan}
-          </span>
-        )}
+        <span className="ml-auto text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
+          {currentPlan}
+        </span>
       </div>
       <div className="grid grid-cols-2 gap-1.5 mb-3">
-        {PLANS.map((plan) => (
-          <button
-            key={plan.id}
-            type="button"
-            onClick={() => setSelected(plan.id)}
-            className={`rounded-xl border p-2.5 text-left transition-all ${
-              selected === plan.id
-                ? `${plan.border} bg-gradient-to-br ${plan.bg || "from-white/5 to-transparent"}`
-                : "border-white/5 bg-white/2"
-            }`}
-          >
-            <div className="flex items-center gap-1 mb-1">
-              {plan.icon}
-              <span
-                className={`text-[10px] font-black ${selected === plan.id ? plan.color : "text-white/40"}`}
-              >
-                {plan.name}
-              </span>
-              {plan.badge && (
-                <span className="text-[8px] text-amber-400 font-bold ml-auto">
-                  ★
-                </span>
-              )}
-            </div>
-            <div
-              className={`text-sm font-black ${selected === plan.id ? plan.color : "text-white/30"}`}
+        {PLANS.map((plan) => {
+          const planRank = PLAN_RANKS[plan.id] ?? 0;
+          const isActiveDbPlan = plan.id === currentPlan;
+          const isLowerTier = planRank < currentDbRank;
+
+          return (
+            <button
+              key={plan.id}
+              type="button"
+              disabled={isLowerTier}
+              onClick={() => !isLowerTier && setSelected(plan.id)}
+              className={`relative rounded-xl border p-2.5 text-left transition-all ${
+                isActiveDbPlan
+                  ? `${plan.border} bg-gradient-to-br ${plan.bg || "from-white/5 to-transparent"} ring-1 ring-primary/40`
+                  : isLowerTier
+                    ? "border-white/5 bg-white/2 opacity-40 cursor-not-allowed"
+                    : selected === plan.id
+                      ? `${plan.border} bg-gradient-to-br ${plan.bg || "from-white/5 to-transparent"} ring-1 ring-primary/40`
+                      : "border-white/5 bg-white/2 hover:border-white/20"
+              }`}
             >
-              {plan.price}
-            </div>
-            {plan.id !== "free" && (
-              <div className="text-[9px] text-white/25">/month</div>
-            )}
-          </button>
-        ))}
+              <div className="flex items-center gap-1 mb-1">
+                {plan.icon}
+                <span
+                  className={`text-[10px] font-black ${selected === plan.id ? plan.color : "text-white/40"}`}
+                >
+                  {plan.name}
+                </span>
+                {isActiveDbPlan ? (
+                  <span className="text-[7px] bg-primary text-black font-black px-1 py-0.2 rounded ml-auto">
+                    ACTIVE
+                  </span>
+                ) : isLowerTier ? (
+                  <span className="text-[7px] bg-white/10 text-white/40 font-bold px-1 py-0.2 rounded ml-auto">
+                    INCLUDED
+                  </span>
+                ) : plan.badge ? (
+                  <span className="text-[8px] text-amber-400 font-bold ml-auto">
+                    ★
+                  </span>
+                ) : null}
+              </div>
+              <div
+                className={`text-sm font-black ${selected === plan.id ? plan.color : "text-white/30"}`}
+              >
+                {plan.price}
+              </div>
+              {plan.id !== "free" && (
+                <div className="text-[9px] text-white/25">/month</div>
+              )}
+            </button>
+          );
+        })}
       </div>
       <div className="space-y-1 mb-3">
         {PLANS.find((p) => p.id === selected)?.features.map((f) => (
@@ -897,25 +936,21 @@ function PremiumCard() {
           </div>
         ))}
       </div>
-      {selected !== "free" ? (
-        <Button
-          onClick={handleUpgrade}
-          disabled={loading || currentPlan === selected}
-          className="w-full bg-primary text-black font-black text-xs py-2 rounded-xl h-8 disabled:opacity-50"
-        >
-          {loading ? (
-            <RefreshCw size={13} className="animate-spin" />
-          ) : currentPlan === selected ? (
-            `Current Plan — ${selected.toUpperCase()}`
-          ) : (
-            `Upgrade to ${PLANS.find((p) => p.id === selected)?.name}`
-          )}
-        </Button>
-      ) : (
-        <div className="text-center text-xs text-white/30 py-1">
-          {currentPlan === "free" ? "Current Plan — Free" : "Free Tier"}
-        </div>
-      )}
+      <Button
+        onClick={handleUpgrade}
+        disabled={loading || isCurrentPlan || isDowngrade}
+        className="w-full bg-primary text-black font-black text-xs py-2 rounded-xl h-8 disabled:opacity-50"
+      >
+        {loading ? (
+          <RefreshCw size={13} className="animate-spin" />
+        ) : isCurrentPlan ? (
+          `Current Plan — ${selected.toUpperCase()}`
+        ) : isDowngrade ? (
+          `Included in ${currentPlan.toUpperCase()} Plan`
+        ) : (
+          `Upgrade to ${PLANS.find((p) => p.id === selected)?.name}`
+        )}
+      </Button>
     </div>
   );
 }
