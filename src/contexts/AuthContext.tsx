@@ -9,6 +9,8 @@ interface AuthContextType {
   token: string | null;
   login: (token: string) => void;
   logout: () => void;
+  refreshUser: () => void;
+  updateUser: (updatedUser: any) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,13 +22,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthTokenGetter(() => localStorage.getItem('motohippi_token'));
   }, []);
 
-  const { data: user, isLoading, error } = useGetMyProfile({
+  const { data: profileUser, isLoading, error, refetch } = useGetMyProfile({
     query: {
       enabled: !!token,
       queryKey: ['/api/users/me'],
       retry: false
     }
   });
+
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    if (profileUser) setUser(profileUser);
+  }, [profileUser]);
 
   const login = (newToken: string) => {
     localStorage.setItem('motohippi_token', newToken);
@@ -39,6 +47,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = '/login';
   };
 
+  const refreshUser = () => {
+    refetch();
+  };
+
+  const updateUser = (updated: any) => {
+    setUser((prev: any) => ({ ...prev, ...updated }));
+  };
+
   useEffect(() => {
     if (error) {
       logout();
@@ -46,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [error]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoggedIn: !!user, isLoading: !!token && isLoading, token, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoggedIn: !!user, isLoading: !!token && isLoading, token, login, logout, refreshUser, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

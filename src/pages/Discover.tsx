@@ -41,6 +41,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Drawer,
   DrawerContent,
@@ -48,6 +49,11 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+
+const getApiBase = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  return "http://localhost:3001/api";
+};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const RADIUS_STEPS = [10, 25, 50, 75, 100, 150, 250, 500];
@@ -787,22 +793,62 @@ function FilterPanel({
 // ─── Premium Card ─────────────────────────────────────────────────────────────
 function PremiumCard() {
   const [selected, setSelected] = useState("gold");
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user, updateUser, refreshUser } = useAuth();
 
-  const handleUpgrade = () => {
+  const handleUpgrade = async () => {
     const plan = PLANS.find((p) => p.id === selected);
     if (!plan || plan.id === "free") return;
-    toast({
-      title: `Upgrade to ${plan.name}`,
-      description: `${plan.price}/month — Payment integration coming soon. We'll notify you when it's live!`,
-    });
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("motohippi_token");
+      const res = await fetch(`${getApiBase()}/subscription/upgrade`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify({ plan: selected }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.user) updateUser(data.user);
+        refreshUser();
+        toast({
+          title: `🎉 Welcome to MotoHippi ${plan.name}!`,
+          description: `You are now on the ${plan.name} plan! All tier features unlocked.`,
+        });
+      } else {
+        toast({
+          title: "Upgrade Failed",
+          description: data.error || "Failed to upgrade subscription",
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to process upgrade",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const currentPlan = user?.plan || "free";
 
   return (
     <div className="rounded-2xl border border-white/8 bg-card/50 p-4 mt-4 shrink-0">
       <div className="flex items-center gap-2 mb-3">
         <Crown size={15} className="text-primary" />
         <h3 className="text-xs font-black text-white">Unlock Better Matches</h3>
+        {currentPlan !== "free" && (
+          <span className="ml-auto text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
+            {currentPlan}
+          </span>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-1.5 mb-3">
         {PLANS.map((plan) => (
@@ -854,13 +900,20 @@ function PremiumCard() {
       {selected !== "free" ? (
         <Button
           onClick={handleUpgrade}
-          className="w-full bg-primary text-black font-black text-xs py-2 rounded-xl h-8"
+          disabled={loading || currentPlan === selected}
+          className="w-full bg-primary text-black font-black text-xs py-2 rounded-xl h-8 disabled:opacity-50"
         >
-          Upgrade to {PLANS.find((p) => p.id === selected)?.name}
+          {loading ? (
+            <RefreshCw size={13} className="animate-spin" />
+          ) : currentPlan === selected ? (
+            `Current Plan — ${selected.toUpperCase()}`
+          ) : (
+            `Upgrade to ${PLANS.find((p) => p.id === selected)?.name}`
+          )}
         </Button>
       ) : (
         <div className="text-center text-xs text-white/30 py-1">
-          Current Plan — Free
+          {currentPlan === "free" ? "Current Plan — Free" : "Free Tier"}
         </div>
       )}
     </div>
@@ -1497,17 +1550,20 @@ function SwipeDeck({
   onExploreGroups: () => void;
   onCreateRide: () => void;
 }) {
-  const [deck, setDeck] = useState<any[]>(riders);
+  const safeRiders = Array.isArray(riders) ? riders : [];
+  const [deck, setDeck] = useState<any[]>(safeRiders);
   const cardControlsRef = useRef<SwipeCardRef | null>(null);
 
   useEffect(() => {
-    setDeck(riders);
+    setDeck(Array.isArray(riders) ? riders : []);
   }, [riders]);
+
+  const safeDeck = Array.isArray(deck) ? deck : [];
 
   const handleSwipe = useCallback(
     (direction: string, riderId: number) => {
       onSwipe(direction, riderId);
-      setDeck((prev) => prev.filter((r) => r.id !== riderId));
+      setDeck((prev) => (Array.isArray(prev) ? prev.filter((r) => r.id !== riderId) : []));
     },
     [onSwipe],
   );
@@ -1517,8 +1573,8 @@ function SwipeDeck({
   }, []);
 
   // Top 3 cards to render
-  const visibleCards = deck.slice(0, 3);
-  const isEmpty = deck.length === 0;
+  const visibleCards = safeDeck.slice(0, 3);
+  const isEmpty = safeDeck.length === 0;
 
   return (
     <div className="flex flex-col items-center">
@@ -1539,7 +1595,7 @@ function SwipeDeck({
               .map((rider, reversedIdx) => {
                 const stackIndex = visibleCards.length - 1 - reversedIdx; // 0 = top
                 const isTop = stackIndex === 0;
-                const globalIdx = riders.findIndex((r) => r.id === rider.id);
+                const globalIdx = safeRiders.findIndex((r) => r.id === rider.id);
                 return (
                   <SwipeCard
                     key={rider.id}
@@ -1570,6 +1626,11 @@ function SwipeDeck({
 
 // ─── Main Discover Page ───────────────────────────────────────────────────────
 export default function Discover() {
+  const { user, updateUser } = useAuth();
+  const currentPlan = user?.plan || "free";
+  const swipesUsed = user?.dailySwipesCount ?? 0;
+  const swipesLeft = Math.max(0, 25 - swipesUsed);
+
   const {
     data: rawCandidates,
     isLoading,
@@ -1584,7 +1645,7 @@ export default function Discover() {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   useEffect(() => {
-    if (rawCandidates && rawCandidates.length > 0) {
+    if (rawCandidates && Array.isArray(rawCandidates)) {
       setRiders(rawCandidates);
     }
   }, [rawCandidates]);
@@ -1611,6 +1672,11 @@ export default function Discover() {
   } | null>(null);
 
   const handleSwipe = (direction: string, riderId: number) => {
+    const userPlan = user?.plan || "free";
+    if (userPlan === "free") {
+      updateUser({ dailySwipesCount: (user?.dailySwipesCount ?? 0) + 1 });
+    }
+
     const action =
       direction === "right"
         ? "like"
@@ -1639,6 +1705,14 @@ export default function Discover() {
               description: "They'll see you at the top of their list.",
             });
           }
+        },
+        onError: (err: any) => {
+          toast({
+            title: "⚡ Daily Swipe Limit Reached (25/25)",
+            description: "You've reached your 25 daily swipes on the Free plan. Upgrade to Plus for unlimited swipes!",
+            variant: "destructive",
+          });
+          setMobileFilterOpen(true);
         },
       },
     );
@@ -1847,18 +1921,33 @@ export default function Discover() {
               </DrawerContent>
             </Drawer>
 
-            {/* Rider count */}
+            {/* Rider count & Swipe Badge */}
             {!isLoading && (
-              <div className="flex items-center gap-1.5">
-                <motion.div
-                  className="w-1.5 h-1.5 rounded-full bg-primary"
-                  animate={{ scale: [1, 1.4, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                />
-                <span className="text-white font-black text-sm">
-                  {nearbyCount}
-                </span>
-                <span className="text-white/40 text-sm">Riders Nearby</span>
+              <div className="flex items-center gap-3 md:gap-4 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <motion.div
+                    className="w-1.5 h-1.5 rounded-full bg-primary"
+                    animate={{ scale: [1, 1.4, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  <span className="text-white font-black text-sm">
+                    {nearbyCount}
+                  </span>
+                  <span className="text-white/40 text-sm">Riders Nearby</span>
+                </div>
+
+                {/* Swipe Counter Badge */}
+                {currentPlan === "free" ? (
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-bold text-primary shadow-[0_0_12px_rgba(214,255,47,0.15)]">
+                    <Zap size={13} className="text-primary fill-primary" />
+                    <span>{swipesLeft} / 25 Swipes Left</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-xs font-bold text-blue-400">
+                    <Zap size={13} className="text-blue-400 fill-blue-400" />
+                    <span className="capitalize">{currentPlan} • Unlimited Swipes</span>
+                  </div>
+                )}
               </div>
             )}
 
