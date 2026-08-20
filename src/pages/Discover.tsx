@@ -132,6 +132,11 @@ const INDIAN_CITIES = [
   "Coorg",
 ];
 
+const MAX_DAILY_SWIPES = parseInt(
+  import.meta.env.VITE_DAILY_SWIPE_LIMIT || "25",
+  10,
+);
+
 const PLANS = [
   {
     id: "free",
@@ -139,7 +144,7 @@ const PLANS = [
     price: "₹0",
     color: "text-white/50",
     border: "border-white/10",
-    features: ["25 swipes/day", "Basic Matching", "Chat after Match"],
+    features: [`${MAX_DAILY_SWIPES} swipes/day`, "Basic Matching", "Chat after Match"],
   },
   {
     id: "plus",
@@ -1664,7 +1669,7 @@ export default function Discover() {
   const { user, updateUser } = useAuth();
   const currentPlan = user?.plan || "free";
   const swipesUsed = user?.dailySwipesCount ?? 0;
-  const swipesLeft = Math.max(0, 25 - swipesUsed);
+  const swipesLeft = Math.max(0, MAX_DAILY_SWIPES - swipesUsed);
 
   const {
     data: rawCandidates,
@@ -1743,8 +1748,8 @@ export default function Discover() {
         },
         onError: (err: any) => {
           toast({
-            title: "⚡ Daily Swipe Limit Reached (25/25)",
-            description: "You've reached your 25 daily swipes on the Free plan. Upgrade to Plus for unlimited swipes!",
+            title: `⚡ Daily Swipe Limit Reached (${MAX_DAILY_SWIPES}/${MAX_DAILY_SWIPES})`,
+            description: `You've reached your ${MAX_DAILY_SWIPES} daily swipes on the Free plan. Upgrade to Plus for unlimited swipes!`,
             variant: "destructive",
           });
           setMobileFilterOpen(true);
@@ -1975,7 +1980,7 @@ export default function Discover() {
                 {currentPlan === "free" ? (
                   <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-bold text-primary shadow-[0_0_12px_rgba(214,255,47,0.15)]">
                     <Zap size={13} className="text-primary fill-primary" />
-                    <span>{swipesLeft} / 25 Swipes Left</span>
+                    <span>{swipesLeft} / {MAX_DAILY_SWIPES} Swipes Left</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-xs font-bold text-blue-400">
