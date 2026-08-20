@@ -1225,6 +1225,7 @@ function SwipeCard({
   onMount,
   filters,
   index,
+  isLimitReached,
 }: {
   rider: any;
   isTop: boolean;
@@ -1233,6 +1234,7 @@ function SwipeCard({
   onMount?: (ref: SwipeCardRef) => void;
   filters: Filters;
   index: number;
+  isLimitReached?: boolean;
 }) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -1287,13 +1289,20 @@ function SwipeCard({
   }, [isTop, flyOut, onMount]);
 
   const handleDragEnd = (_: any, info: any) => {
+    if (isLimitReached) return;
     const { offset, velocity } = info;
-    if (offset.x > 110 || velocity.x > 550) flyOut("right");
-    else if (offset.x < -110 || velocity.x < -550) flyOut("left");
-    else if (offset.y < -110 || velocity.y < -550) flyOut("up");
-    else {
-      fmAnimate(x, 0, { type: "spring", stiffness: 350, damping: 30 });
-      fmAnimate(y, 0, { type: "spring", stiffness: 350, damping: 30 });
+    const swipeThreshold = 110;
+    const velocityThreshold = 400;
+
+    if (offset.x > swipeThreshold || velocity.x > velocityThreshold) {
+      flyOut("right");
+    } else if (offset.x < -swipeThreshold || velocity.x < -velocityThreshold) {
+      flyOut("left");
+    } else if (offset.y < -swipeThreshold || velocity.y < -velocityThreshold) {
+      flyOut("up");
+    } else {
+      fmAnimate(x, 0, { duration: 0.3, ease: "easeOut" });
+      fmAnimate(y, 0, { duration: 0.3, ease: "easeOut" });
     }
   };
 
@@ -1522,22 +1531,34 @@ function ActionButtons({
   onSuperRide,
   onRideTogether,
   disabled,
+  isLimitReached,
+  onUpgrade,
 }: {
   onPass: () => void;
   onSuperRide: () => void;
   onRideTogether: () => void;
   disabled?: boolean;
+  isLimitReached?: boolean;
+  onUpgrade?: () => void;
 }) {
+  const handleClick = (actionFn: () => void) => {
+    if (isLimitReached) {
+      if (onUpgrade) onUpgrade();
+    } else {
+      actionFn();
+    }
+  };
+
   return (
     <div className="flex items-center justify-center gap-5 pt-5">
       {/* Pass */}
       <motion.button
         type="button"
-        onClick={onPass}
-        disabled={disabled}
+        onClick={() => handleClick(onPass)}
+        disabled={disabled && !isLimitReached}
         whileTap={{ scale: 0.88 }}
         whileHover={{ scale: 1.08, boxShadow: "0 0 30px rgba(239,68,68,0.4)" }}
-        className="w-16 h-16 rounded-full bg-card border-2 border-red-500/40 flex items-center justify-center text-red-400 shadow-lg disabled:opacity-40 transition-all"
+        className="w-16 h-16 rounded-full bg-card border-2 border-red-500/40 flex items-center justify-center text-red-400 shadow-lg disabled:opacity-40 transition-all cursor-pointer"
         style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}
       >
         <X size={26} strokeWidth={2.5} />
@@ -1546,11 +1567,11 @@ function ActionButtons({
       {/* Super Ride */}
       <motion.button
         type="button"
-        onClick={onSuperRide}
-        disabled={disabled}
+        onClick={() => handleClick(onSuperRide)}
+        disabled={disabled && !isLimitReached}
         whileTap={{ scale: 0.88 }}
         whileHover={{ scale: 1.08, boxShadow: "0 0 30px rgba(251,191,36,0.5)" }}
-        className="w-14 h-14 rounded-full bg-card border-2 border-amber-400/50 flex items-center justify-center text-amber-400 shadow-lg disabled:opacity-40 transition-all"
+        className="w-14 h-14 rounded-full bg-card border-2 border-amber-400/50 flex items-center justify-center text-amber-400 shadow-lg disabled:opacity-40 transition-all cursor-pointer"
         style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
       >
         <Star size={22} strokeWidth={2.5} fill="currentColor" />
@@ -1559,11 +1580,11 @@ function ActionButtons({
       {/* Ride Together */}
       <motion.button
         type="button"
-        onClick={onRideTogether}
-        disabled={disabled}
+        onClick={() => handleClick(onRideTogether)}
+        disabled={disabled && !isLimitReached}
         whileTap={{ scale: 0.88 }}
         whileHover={{ scale: 1.08, boxShadow: "0 0 40px rgba(214,255,47,0.5)" }}
-        className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-black shadow-lg disabled:opacity-40 transition-all"
+        className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-black shadow-lg disabled:opacity-40 transition-all cursor-pointer"
         style={{ boxShadow: "0 8px 32px rgba(214,255,47,0.25)" }}
       >
         <Heart size={26} strokeWidth={2.5} fill="currentColor" />
@@ -1581,6 +1602,8 @@ function SwipeDeck({
   onRefresh,
   onExploreGroups,
   onCreateRide,
+  isLimitReached,
+  onUpgrade,
 }: {
   riders: any[];
   onSwipe: (direction: string, riderId: number) => void;
@@ -1589,6 +1612,8 @@ function SwipeDeck({
   onRefresh: () => void;
   onExploreGroups: () => void;
   onCreateRide: () => void;
+  isLimitReached?: boolean;
+  onUpgrade?: () => void;
 }) {
   const safeRiders = Array.isArray(riders) ? riders : [];
   const [deck, setDeck] = useState<any[]>(safeRiders);
@@ -1603,9 +1628,11 @@ function SwipeDeck({
   const handleSwipe = useCallback(
     (direction: string, riderId: number) => {
       onSwipe(direction, riderId);
-      setDeck((prev) => (Array.isArray(prev) ? prev.filter((r) => r.id !== riderId) : []));
+      if (!isLimitReached) {
+        setDeck((prev) => (Array.isArray(prev) ? prev.filter((r) => r.id !== riderId) : []));
+      }
     },
-    [onSwipe],
+    [onSwipe, isLimitReached],
   );
 
   const handleMount = useCallback((ref: SwipeCardRef) => {
@@ -1646,6 +1673,7 @@ function SwipeDeck({
                     onMount={isTop ? handleMount : undefined}
                     filters={filters}
                     index={globalIdx >= 0 ? globalIdx : stackIndex}
+                    isLimitReached={isLimitReached}
                   />
                 );
               })
@@ -1656,6 +1684,8 @@ function SwipeDeck({
       {/* Action buttons */}
       <ActionButtons
         disabled={isEmpty}
+        isLimitReached={isLimitReached}
+        onUpgrade={onUpgrade}
         onPass={() => cardControlsRef.current?.flyLeft()}
         onSuperRide={() => cardControlsRef.current?.flyUp()}
         onRideTogether={() => cardControlsRef.current?.flyRight()}
@@ -1711,9 +1741,20 @@ export default function Discover() {
     conversationId: number;
   } | null>(null);
 
+  const isLimitReached = (currentPlan || "free").toLowerCase() === "free" && swipesLeft <= 0;
+
   const handleSwipe = (direction: string, riderId: number) => {
-    const userPlan = user?.plan || "free";
+    const userPlan = (user?.plan || "free").toLowerCase();
     if (userPlan === "free") {
+      if (swipesLeft <= 0) {
+        toast({
+          title: `⚡ Daily Swipe Limit Reached (${MAX_DAILY_SWIPES}/${MAX_DAILY_SWIPES})`,
+          description: `You've used all ${MAX_DAILY_SWIPES} free swipes for today. Upgrade to Plus for unlimited swipes!`,
+          variant: "destructive",
+        });
+        setMobileFilterOpen(true);
+        return;
+      }
       updateUser({ dailySwipesCount: (user?.dailySwipesCount ?? 0) + 1 });
     }
 
@@ -1798,7 +1839,7 @@ export default function Discover() {
             {[0, 1, 2].map((i) => (
               <motion.div
                 key={i}
-                className="absolute rounded-full border border-primary/20"
+                className="absolute rounded-full border border-primary/20 pointer-events-none"
                 initial={{ scale: 0, opacity: 0.8 }}
                 animate={{ scale: 4 + i * 1.5, opacity: 0 }}
                 transition={{ duration: 1.2, delay: i * 0.18, ease: "easeOut" }}
@@ -1807,7 +1848,7 @@ export default function Discover() {
             ))}
 
             {/* Avatars */}
-            <div className="flex items-center gap-0 mb-8 relative">
+            <div className="flex items-center gap-0 mb-8 relative z-20 pointer-events-none">
               <motion.div
                 initial={{ x: 60, opacity: 0, scale: 0.7 }}
                 animate={{ x: 0, opacity: 1, scale: 1 }}
@@ -1852,7 +1893,7 @@ export default function Discover() {
               initial={{ y: 24, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.5 }}
-              className="text-center mb-8 px-6"
+              className="text-center mb-8 px-6 relative z-20 pointer-events-none"
             >
               <p className="text-primary font-black text-4xl tracking-tight mb-2">
                 It's a Match!
@@ -1871,16 +1912,19 @@ export default function Discover() {
               initial={{ y: 24, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.65 }}
-              className="flex flex-col gap-3 w-full max-w-[260px]"
+              className="flex flex-col gap-3 w-full max-w-[260px] relative z-30 pointer-events-auto"
             >
               <motion.button
+                type="button"
                 whileTap={{ scale: 0.96 }}
                 whileHover={{ boxShadow: "0 0 30px rgba(214,255,47,0.4)" }}
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const convId = matchData.conversationId;
                   setMatchData(null);
-                  navigate(`/messages?conv=${matchData.conversationId}`);
+                  navigate(`/messages?conv=${convId}`);
                 }}
-                className="w-full py-3.5 rounded-2xl bg-primary text-black font-black text-sm flex items-center justify-center gap-2"
+                className="w-full py-3.5 rounded-2xl bg-primary text-black font-black text-sm flex items-center justify-center gap-2 cursor-pointer relative z-30"
               >
                 <svg
                   width="16"
@@ -1897,9 +1941,13 @@ export default function Discover() {
                 Send Message
               </motion.button>
               <motion.button
+                type="button"
                 whileTap={{ scale: 0.96 }}
-                onClick={() => setMatchData(null)}
-                className="w-full py-3 rounded-2xl border border-white/10 text-white/50 text-sm font-semibold hover:text-white hover:border-white/20 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMatchData(null);
+                }}
+                className="w-full py-3 rounded-2xl border border-white/10 text-white/50 text-sm font-semibold hover:text-white hover:border-white/20 transition-colors cursor-pointer relative z-30"
               >
                 Keep Swiping
               </motion.button>
@@ -1978,10 +2026,21 @@ export default function Discover() {
 
                 {/* Swipe Counter Badge */}
                 {currentPlan === "free" ? (
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-bold text-primary shadow-[0_0_12px_rgba(214,255,47,0.15)]">
-                    <Zap size={13} className="text-primary fill-primary" />
-                    <span>{swipesLeft} / {MAX_DAILY_SWIPES} Swipes Left</span>
-                  </div>
+                  swipesLeft > 0 ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-bold text-primary shadow-[0_0_12px_rgba(214,255,47,0.15)]">
+                      <Zap size={13} className="text-primary fill-primary" />
+                      <span>{swipesLeft} / {MAX_DAILY_SWIPES} Swipes Left</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setMobileFilterOpen(true)}
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/15 border border-red-500/40 text-xs font-bold text-red-400 hover:bg-red-500/25 transition-all shadow-[0_0_12px_rgba(239,68,68,0.2)]"
+                    >
+                      <Zap size={13} className="text-red-400 fill-red-400 animate-pulse" />
+                      <span>0 / {MAX_DAILY_SWIPES} Left — Upgrade to Swipe</span>
+                    </button>
+                  )
                 ) : (
                   <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-xs font-bold text-blue-400">
                     <Zap size={13} className="text-blue-400 fill-blue-400" />
@@ -2074,6 +2133,8 @@ export default function Discover() {
                   onRefresh={handleRefresh}
                   onExploreGroups={handleExploreGroups}
                   onCreateRide={handleCreateRide}
+                  isLimitReached={isLimitReached}
+                  onUpgrade={() => setMobileFilterOpen(true)}
                 />
               </motion.div>
             )}
