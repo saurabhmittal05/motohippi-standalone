@@ -22,6 +22,11 @@ import Messages from '@/pages/Messages';
 import Profile from '@/pages/Profile';
 import CartPage from '@/pages/Cart';
 
+import Terms from '@/pages/Terms';
+import PrivacyPolicy from '@/pages/PrivacyPolicy';
+import RefundPolicy from '@/pages/RefundPolicy';
+import ShippingPolicy from '@/pages/ShippingPolicy';
+
 import NotFound from '@/pages/not-found';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -41,6 +46,28 @@ function Router() {
         <Route path="/verify-email" component={VerifyEmail} />
         <Route path="/forgot-password" component={ForgotPassword} />
         <Route path="/onboarding" component={Onboarding} />
+
+        {/* Legal & Policy Routes */}
+        <Route path="/T&C" component={Terms} />
+        <Route path="/T%26C" component={Terms} />
+        <Route path="/terms" component={Terms} />
+        <Route path="/terms-and-conditions" component={Terms} />
+        <Route path="/tnc" component={Terms} />
+
+        <Route path="/privacy_policy" component={PrivacyPolicy} />
+        <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/privacy-policy" component={PrivacyPolicy} />
+
+        <Route path="/refund_policy" component={RefundPolicy} />
+        <Route path="/refund-policy" component={RefundPolicy} />
+        <Route path="/refund-and-cancellation" component={RefundPolicy} />
+
+        <Route path="/return_policy" component={RefundPolicy} />
+        <Route path="/return-policy" component={RefundPolicy} />
+
+        <Route path="/shipping_policy" component={ShippingPolicy} />
+        <Route path="/shipping-policy" component={ShippingPolicy} />
+        <Route path="/shipping" component={ShippingPolicy} />
 
         {/* Protected Routes */}
         <Route path="/home" component={Home} />

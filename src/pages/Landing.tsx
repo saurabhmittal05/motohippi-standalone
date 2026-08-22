@@ -93,8 +93,16 @@ export default function Landing() {
               <p>WhatsApp: <a href="https://wa.me/919999207570" className="text-white hover:text-primary transition-colors">+91-9999207570</a></p>
             </div>
           </div>
-          <div className="mt-8 pt-8 border-t border-white/5 text-center text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} MotoHippi. All rights reserved.
+          <div className="mt-8 pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+            <div>
+              &copy; {new Date().getFullYear()} MotoHippi. All rights reserved.
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+              <Link href="/terms" className="hover:text-primary transition-colors">Terms &amp; Conditions</Link>
+              <Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+              <Link href="/refund-policy" className="hover:text-primary transition-colors">Refund &amp; Return Policy</Link>
+              <Link href="/shipping-policy" className="hover:text-primary transition-colors">Shipping Policy</Link>
+            </div>
           </div>
         </div>
       </footer>
